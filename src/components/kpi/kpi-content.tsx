@@ -15,6 +15,7 @@ import { PositionForecastTable } from './position-forecast-table';
 import { ClientValueTable } from './client-value-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2 } from 'lucide-react';
 
 export function KpiContent() {
   const { start, end, loaded } = useDateRange();
@@ -33,6 +34,10 @@ export function KpiContent() {
   if (isLoading || !data) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center gap-3 py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="text-sm font-medium text-muted-foreground">Loading KPI data from ClickUp...</span>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
           {Array.from({ length: 12 }).map((_, i) => (
             <Skeleton key={i} className="h-20 rounded-xl" />

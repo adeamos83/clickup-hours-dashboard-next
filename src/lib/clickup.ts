@@ -1,13 +1,17 @@
 /**
  * ClickUp API client — fetches time entries and task details.
- * Uses native fetch instead of axios.
  */
 
 import { EMPLOYEE_IDS, USER_ID_TO_NAME } from './config';
-import { getCachedTaskIds, upsertTaskDetails, getTaskDetail } from './db';
 import type { ClickUpEntry } from './types';
 
 const API_BASE = 'https://api.clickup.com/api/v2';
+
+// Space IDs to exclude from all data
+const EXCLUDED_SPACE_IDS = new Set(['20235871']);
+
+// In-memory cache for task details to avoid re-fetching within the same server process
+const taskDetailCache = new Map<string, { folder: { id?: string; name?: string } | null; list: { id?: string; name?: string } | null; space: { id?: string; name?: string } | null; status: string | null }>();
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -78,7 +82,6 @@ interface TaskDetailResult {
 /**
  * Fetch full task details for an array of task IDs.
  * Runs in parallel batches to speed things up.
- * Returns a map of taskId -> { folder, list, space, status }.
  */
 export async function fetchTaskDetails(
   token: string,
@@ -138,7 +141,7 @@ export async function fetchTaskDetails(
 
 /**
  * Enrich time entries with full task details (folder, list, space).
- * Checks the DB cache first — only fetches tasks we haven't seen before.
+ * Uses an in-memory cache to avoid re-fetching the same tasks.
  */
 export async function enrichEntries(
   token: string,
@@ -148,32 +151,42 @@ export async function enrichEntries(
     entries.filter((e) => e.task?.id).map((e) => e.task.id!)
   )];
 
-  const cachedIds = await getCachedTaskIds();
-  const uncachedIds = uniqueTaskIds.filter((id) => !cachedIds.has(id));
+  const uncachedIds = uniqueTaskIds.filter((id) => !taskDetailCache.has(id));
 
-  console.log(`  ${uniqueTaskIds.length} unique tasks — ${cachedIds.size} cached, ${uncachedIds.length} to fetch`);
+  console.log(`  ${uniqueTaskIds.length} unique tasks — ${uniqueTaskIds.length - uncachedIds.length} cached, ${uncachedIds.length} to fetch`);
 
   if (uncachedIds.length > 0) {
     const newDetails = await fetchTaskDetails(token, uncachedIds);
-    await upsertTaskDetails(newDetails);
-    console.log(`  Cached ${uncachedIds.length} new task details`);
+    for (const [taskId, detail] of Object.entries(newDetails)) {
+      taskDetailCache.set(taskId, detail);
+    }
+    console.log(`  Cached ${uncachedIds.length} new task details in memory`);
   }
 
-  // Apply cached details to in-memory entries
   for (const entry of entries) {
     const taskId = entry.task?.id;
     if (taskId) {
-      const cached = await getTaskDetail(taskId);
+      const cached = taskDetailCache.get(taskId);
       if (cached) {
         if (!entry.task) entry.task = { id: taskId };
-        entry.task.folder = cached.folder_name ? { id: cached.folder_id ?? undefined, name: cached.folder_name } : undefined;
-        entry.task.list = cached.list_name ? { id: cached.list_id ?? undefined, name: cached.list_name } : undefined;
-        entry.task.space = cached.space_name ? { id: cached.space_id ?? undefined, name: cached.space_name } : undefined;
+        entry.task.folder = cached.folder ?? undefined;
+        entry.task.list = cached.list ?? undefined;
+        entry.task.space = cached.space ?? undefined;
       }
     }
   }
 
-  return entries;
+  // Filter out entries from excluded spaces
+  const filtered = entries.filter((entry) => {
+    const spaceId = entry.task?.space?.id;
+    return !spaceId || !EXCLUDED_SPACE_IDS.has(spaceId);
+  });
+
+  if (filtered.length < entries.length) {
+    console.log(`  Excluded ${entries.length - filtered.length} entries from excluded spaces`);
+  }
+
+  return filtered;
 }
 
 export { EMPLOYEE_IDS, USER_ID_TO_NAME };

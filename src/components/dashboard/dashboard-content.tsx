@@ -11,6 +11,7 @@ import { TopTasksTable } from './top-tasks-table';
 import { EmployeeClientTable } from './employee-client-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2 } from 'lucide-react';
 
 export function DashboardContent() {
   const { start, end, loaded } = useDateRange();
@@ -29,6 +30,10 @@ export function DashboardContent() {
   if (isLoading || !data) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center gap-3 py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="text-sm font-medium text-muted-foreground">Loading dashboard data from ClickUp...</span>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl" />

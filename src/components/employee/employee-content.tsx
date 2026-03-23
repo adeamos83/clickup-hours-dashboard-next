@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2 } from 'lucide-react';
 import { EmployeeCharts } from './employee-charts';
 import { EmployeeDailyChart } from './employee-daily-chart';
 import { EmployeeTasksTable } from './employee-tasks-table';
@@ -36,6 +37,10 @@ export function EmployeeContent({ name, start, end }: Props) {
   if (isLoading || !data) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center gap-3 py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="text-sm font-medium text-muted-foreground">Loading employee data from ClickUp...</span>
+        </div>
         <Skeleton className="h-8 w-64" />
         <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6"><Skeleton className="h-20" /><Skeleton className="h-20" /><Skeleton className="h-20" /><Skeleton className="h-20" /><Skeleton className="h-20" /><Skeleton className="h-20" /></div>
         <Skeleton className="h-96 rounded-xl" />

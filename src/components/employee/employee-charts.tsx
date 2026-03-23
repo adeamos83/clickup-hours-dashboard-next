@@ -31,7 +31,7 @@ export function EmployeeCharts({ clients, internalCategories }: Props) {
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
               <Tooltip
                 formatter={(value) => [`${Number(value).toFixed(1)} hrs`]}
-                contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+                contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
               />
               <Bar dataKey="totalHours" fill="#2DC88A" radius={[0, 4, 4, 0]} />
             </BarChart>
@@ -52,7 +52,7 @@ export function EmployeeCharts({ clients, internalCategories }: Props) {
               <Pie data={internalCategories} dataKey="totalHours" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2}>
                 {internalCategories.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}
               </Pie>
-              <Tooltip formatter={(value) => [`${Number(value).toFixed(1)} hrs`]} contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
+              <Tooltip formatter={(value) => [`${Number(value).toFixed(1)} hrs`]} contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
             </PieChart>
           </ResponsiveContainer>

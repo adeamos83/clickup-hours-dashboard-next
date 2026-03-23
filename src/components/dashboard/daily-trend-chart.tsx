@@ -28,7 +28,7 @@ export function DailyTrendChart({ dailyTrend }: Props) {
                 <stop offset="100%" stopColor="#2DC88A" stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
               dataKey="date"
               tick={{ fontSize: 11 }}
@@ -41,7 +41,7 @@ export function DailyTrendChart({ dailyTrend }: Props) {
             <Tooltip
               formatter={(value) => [`${Number(value).toFixed(1)} hrs`, 'Hours']}
               labelFormatter={(label) => `Date: ${label}`}
-              contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+              contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
             />
             <Area
               type="monotone"

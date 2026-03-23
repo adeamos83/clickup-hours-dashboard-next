@@ -30,7 +30,7 @@ export function ClientCharts({ employees, topTasks }: Props) {
               <BarChart data={employees} layout="vertical" margin={{ left: 100, right: 20 }}>
                 <XAxis type="number" tick={{ fontSize: 12 }} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={100} />
-                <Tooltip formatter={(value) => [`${Number(value).toFixed(1)} hrs`]} contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
+                <Tooltip formatter={(value) => [`${Number(value).toFixed(1)} hrs`]} contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
                 <Bar dataKey="totalHours" fill="#2DC88A" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -50,7 +50,7 @@ export function ClientCharts({ employees, topTasks }: Props) {
                 <Pie data={employees} dataKey="totalHours" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2}>
                   {employees.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}
                 </Pie>
-                <Tooltip formatter={(value) => [`${Number(value).toFixed(1)} hrs`]} contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
+                <Tooltip formatter={(value) => [`${Number(value).toFixed(1)} hrs`]} contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
               </PieChart>
             </ResponsiveContainer>
@@ -76,7 +76,7 @@ export function ClientCharts({ employees, topTasks }: Props) {
                   const task = payload?.[0]?.payload;
                   return task ? `${task.name}\nTeam: ${task.employees?.join(', ')}` : '';
                 }}
-                contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+                contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
               />
               <Bar dataKey="totalHours" fill="#2DC88A" radius={[0, 4, 4, 0]} />
             </BarChart>

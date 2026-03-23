@@ -26,7 +26,7 @@ export function RoiChart({ data }: { data: SalaryScoping[] }) {
             <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
             <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
             <Tooltip
-              contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+              contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
               formatter={(value) => [`${Number(value).toFixed(1)}%`, 'ROI']}
             />
             <ReferenceLine x={0} stroke="#9CA3AF" strokeDasharray="3 3" />

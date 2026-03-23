@@ -12,7 +12,7 @@ import { ClientUtilizationTable } from './client-utilization-table';
 import { DepartmentSummaryTable } from './department-summary-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
+import { Loader2, BarChart3 } from 'lucide-react';
 
 export function UtilizationContent() {
   const { start, end, loaded } = useDateRange();
@@ -45,6 +45,16 @@ export function UtilizationContent() {
           <Skeleton className="h-80 rounded-xl" />
         </div>
         <Skeleton className="h-96 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (data.employeeUtilization.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <BarChart3 className="h-12 w-12 text-muted-foreground/30" />
+        <h3 className="mt-4 text-lg font-semibold text-foreground">No utilization data for this period</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Try selecting a different date range or click Refresh to fetch the latest data from ClickUp.</p>
       </div>
     );
   }

@@ -42,7 +42,7 @@ export function TopTasksTable({ tasks }: Props) {
                 const task = payload?.[0]?.payload;
                 return task ? `${task.name}\nClient: ${task.client}\nTeam: ${task.employees?.join(', ')}` : '';
               }}
-              contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)', whiteSpace: 'pre-line' }}
+              contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)', whiteSpace: 'pre-line' }}
             />
             <Bar dataKey="totalHours" radius={[0, 6, 6, 0]}>
               {tasks.map((_, i) => (

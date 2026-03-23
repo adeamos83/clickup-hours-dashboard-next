@@ -64,7 +64,7 @@ export function SummaryCards({ summary }: { summary: DashboardSummary }) {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <p className="mt-2 text-3xl font-extrabold text-[#0D1F17] dark:text-card-foreground">
+                <p className="mt-2 text-3xl font-extrabold text-foreground">
                   {key === 'employeesActive' || key === 'totalEntries'
                     ? summary[key].toLocaleString()
                     : summary[key].toFixed(1)}

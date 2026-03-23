@@ -28,7 +28,7 @@ export function EmployeeDailyChart({ dailyTrend }: Props) {
             </defs>
             <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => d.slice(5)} />
             <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip formatter={(value) => [`${Number(value).toFixed(1)} hrs`]} labelFormatter={(l) => `Date: ${l}`} contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
+            <Tooltip formatter={(value) => [`${Number(value).toFixed(1)} hrs`]} labelFormatter={(l) => `Date: ${l}`} contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
             <Area type="monotone" dataKey="hours" stroke="#2DC88A" fill="url(#empGradient)" strokeWidth={2} />
           </AreaChart>
         </ResponsiveContainer>

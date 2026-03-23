@@ -25,11 +25,11 @@ export function DepartmentChart({ departments }: { departments: DepartmentBreakd
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="department" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip
-              contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+              contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
               formatter={(value) => [`${Number(value).toFixed(1)} hrs`]}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />

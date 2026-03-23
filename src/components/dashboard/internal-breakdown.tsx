@@ -44,7 +44,7 @@ export function InternalBreakdown({ categories }: Props) {
             </Pie>
             <Tooltip
               formatter={(value) => [`${Number(value).toFixed(1)} hrs`, 'Hours']}
-              contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+              contentStyle={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
             />
             <Legend
               layout="vertical"

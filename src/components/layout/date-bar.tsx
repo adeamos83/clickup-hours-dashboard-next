@@ -95,6 +95,7 @@ export function DateBar() {
   const [localStart, setLocalStart] = useState(start);
   const [localEnd, setLocalEnd] = useState(end);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [showPresets, setShowPresets] = useState(false);
   const { mutate } = useSWRConfig();
 
@@ -120,6 +121,7 @@ export function DateBar() {
     try {
       await fetch(`/api/refresh?start=${start}&end=${end}`, { method: 'POST' });
       mutate((key: unknown) => typeof key === 'string' && key.startsWith('/api/'));
+      setLastRefreshed(new Date());
     } finally {
       setRefreshing(false);
     }
@@ -164,7 +166,7 @@ export function DateBar() {
             type="date"
             value={localStart}
             onChange={(e) => setLocalStart(e.target.value)}
-            className="rounded-[10px] border border-border bg-[#F9FAFB] px-2.5 py-1.5 text-[13px] text-foreground outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className="rounded-[10px] border border-border bg-secondary px-2.5 py-1.5 text-[13px] text-foreground outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </label>
         <label className="flex items-center gap-2">
@@ -173,7 +175,7 @@ export function DateBar() {
             type="date"
             value={localEnd}
             onChange={(e) => setLocalEnd(e.target.value)}
-            className="rounded-[10px] border border-border bg-[#F9FAFB] px-2.5 py-1.5 text-[13px] text-foreground outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className="rounded-[10px] border border-border bg-secondary px-2.5 py-1.5 text-[13px] text-foreground outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </label>
       </div>
@@ -196,6 +198,12 @@ export function DateBar() {
       </button>
 
       <div className="flex-1" />
+
+      {lastRefreshed && (
+        <span className="text-[11px] text-muted-foreground">
+          Refreshed {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      )}
     </div>
   );
 }

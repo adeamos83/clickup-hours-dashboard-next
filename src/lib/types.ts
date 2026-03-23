@@ -44,6 +44,13 @@ export interface DashboardSummary {
   internalHours: number;
   employeesActive: number;
   totalEntries: number;
+  previousPeriod?: {
+    totalHours: number;
+    clientHours: number;
+    internalHours: number;
+    employeesActive: number;
+    totalEntries: number;
+  };
 }
 
 export interface DashboardData {

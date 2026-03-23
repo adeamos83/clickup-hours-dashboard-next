@@ -12,6 +12,23 @@ const COLORS = [
   '#84CC16', '#F43F5E', '#0EA5E9',
 ];
 
+const RADIAN = Math.PI / 180;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function renderLabel(props: any) {
+  const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
+  if (percent < 0.04) return null;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+}
+
 interface Props {
   categories: { name: string; totalHours: number }[];
 }
@@ -37,6 +54,8 @@ export function InternalBreakdown({ categories }: Props) {
               innerRadius={65}
               outerRadius={115}
               paddingAngle={1}
+              label={renderLabel}
+              labelLine={false}
             >
               {categories.map((_, i) => (
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />

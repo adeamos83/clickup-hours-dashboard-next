@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Clock, Users, Building2, Briefcase, FileText, Info } from 'lucide-react';
+import { Clock, Users, Building2, Briefcase, FileText, Info, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import type { DashboardSummary } from '@/lib/types';
 
 const CARDS = [
@@ -43,7 +43,37 @@ const CARDS = [
   },
 ];
 
+function TrendBadge({ current, previous, invertColor }: { current: number; previous: number; invertColor?: boolean }) {
+  if (previous === 0 && current === 0) return null;
+
+  const pctChange = previous > 0
+    ? ((current - previous) / previous) * 100
+    : current > 0 ? 100 : 0;
+
+  if (Math.abs(pctChange) < 0.5) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground">
+        <Minus className="h-3 w-3" />
+        0%
+      </span>
+    );
+  }
+
+  const isUp = pctChange > 0;
+  // For internal hours, up is bad (inverted); for everything else, up is good
+  const isPositive = invertColor ? !isUp : isUp;
+
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${isPositive ? 'text-emerald-500' : 'text-red-400'}`}>
+      {isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+      {isUp ? '+' : ''}{pctChange.toFixed(1)}%
+    </span>
+  );
+}
+
 export function SummaryCards({ summary }: { summary: DashboardSummary }) {
+  const prev = summary.previousPeriod;
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {CARDS.map(({ key, label, icon: Icon, color, tip }) => (
@@ -69,6 +99,24 @@ export function SummaryCards({ summary }: { summary: DashboardSummary }) {
                     ? summary[key].toLocaleString()
                     : summary[key].toFixed(1)}
                 </p>
+                {prev && (
+                  <div className="mt-1.5">
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <TrendBadge
+                          current={summary[key]}
+                          previous={prev[key]}
+                          invertColor={key === 'internalHours'}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[200px]">
+                        vs previous period: {key === 'employeesActive' || key === 'totalEntries'
+                          ? prev[key].toLocaleString()
+                          : prev[key].toFixed(1)}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
               </div>
               <div
                 className="flex h-10 w-10 items-center justify-center rounded-xl"

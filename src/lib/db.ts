@@ -82,56 +82,51 @@ export async function getCachedEntries(start: string, end: string): Promise<Clic
 export async function cacheEntries(entries: ClickUpEntry[], start: string, end: string): Promise<void> {
   const allDates = dateRange(start, end);
 
-  await sql.begin(async (tx) => {
-    // Clear existing entries for this date range
-    await tx`
-      DELETE FROM time_entries
-      WHERE entry_date >= ${start}::date AND entry_date <= ${end}::date
-    `;
+  // Clear existing entries for this date range
+  await sql`
+    DELETE FROM time_entries
+    WHERE entry_date >= ${start}::date AND entry_date <= ${end}::date
+  `;
 
-    // Batch insert entries
-    if (entries.length > 0) {
-      const rows = entries.map((entry) => {
-        const startMs = parseInt(entry.start, 10);
-        const entryDate = new Date(startMs).toISOString().split('T')[0];
-        return {
-          id: entry.id,
-          entry_date: entryDate,
-          raw_json: sql.json(entry),
-        };
-      });
+  // Batch insert entries
+  if (entries.length > 0) {
+    const rows = entries.map((entry) => {
+      const startMs = parseInt(entry.start, 10);
+      const entryDate = new Date(startMs).toISOString().split('T')[0];
+      return {
+        id: entry.id,
+        entry_date: entryDate,
+        raw_json: sql.json(entry),
+      };
+    });
 
-      // Insert in batches of 500
-      for (let i = 0; i < rows.length; i += 500) {
-        const batch = rows.slice(i, i + 500);
-        await tx`
-          INSERT INTO time_entries ${tx(batch, 'id', 'entry_date', 'raw_json')}
-          ON CONFLICT (id) DO UPDATE SET
-            entry_date = EXCLUDED.entry_date,
-            raw_json = EXCLUDED.raw_json
-        `;
-      }
-    }
-
-    // Mark all dates in range as cached
-    if (allDates.length > 0) {
-      const datesToInsert = allDates.map((d) => ({ date: d }));
-      await tx`
-        INSERT INTO cache_metadata ${tx(datesToInsert, 'date')}
-        ON CONFLICT (date) DO UPDATE SET cached_at = NOW()
+    for (let i = 0; i < rows.length; i += 500) {
+      const batch = rows.slice(i, i + 500);
+      await sql`
+        INSERT INTO time_entries ${sql(batch, 'id', 'entry_date', 'raw_json')}
+        ON CONFLICT (id) DO UPDATE SET
+          entry_date = EXCLUDED.entry_date,
+          raw_json = EXCLUDED.raw_json
       `;
     }
-  });
+  }
+
+  // Mark all dates in range as cached
+  if (allDates.length > 0) {
+    const datesToInsert = allDates.map((d) => ({ date: d }));
+    await sql`
+      INSERT INTO cache_metadata ${sql(datesToInsert, 'date')}
+      ON CONFLICT (date) DO UPDATE SET cached_at = NOW()
+    `;
+  }
 }
 
 /**
  * Invalidate cache for a date range — forces next request to re-fetch from ClickUp.
  */
 export async function invalidateCache(start: string, end: string): Promise<void> {
-  await sql.begin(async (tx) => {
-    await tx`DELETE FROM cache_metadata WHERE date >= ${start}::date AND date <= ${end}::date`;
-    await tx`DELETE FROM time_entries WHERE entry_date >= ${start}::date AND entry_date <= ${end}::date`;
-  });
+  await sql`DELETE FROM cache_metadata WHERE date >= ${start}::date AND date <= ${end}::date`;
+  await sql`DELETE FROM time_entries WHERE entry_date >= ${start}::date AND entry_date <= ${end}::date`;
 }
 
 export { sql };

@@ -96,26 +96,29 @@ export async function cacheEntries(entries: ClickUpEntry[], start: string, end: 
       return {
         id: entry.id,
         entry_date: entryDate,
-        raw_json: sql.json(entry as unknown as Record<string, unknown>),
+        raw_json: entry,
       };
     });
 
     for (let i = 0; i < rows.length; i += 500) {
       const batch = rows.slice(i, i + 500);
-      await sql`
-        INSERT INTO time_entries ${sql(batch, 'id', 'entry_date', 'raw_json')}
-        ON CONFLICT (id) DO UPDATE SET
-          entry_date = EXCLUDED.entry_date,
-          raw_json = EXCLUDED.raw_json
-      `;
+      for (const row of batch) {
+        await sql`
+          INSERT INTO time_entries (id, entry_date, raw_json)
+          VALUES (${row.id}, ${row.entry_date}::date, ${JSON.stringify(row.raw_json)}::jsonb)
+          ON CONFLICT (id) DO UPDATE SET
+            entry_date = EXCLUDED.entry_date,
+            raw_json = EXCLUDED.raw_json
+        `;
+      }
     }
   }
 
   // Mark all dates in range as cached
-  if (allDates.length > 0) {
-    const datesToInsert = allDates.map((d) => ({ date: d }));
+  for (const d of allDates) {
     await sql`
-      INSERT INTO cache_metadata ${sql(datesToInsert, 'date')}
+      INSERT INTO cache_metadata (date, cached_at)
+      VALUES (${d}::date, NOW())
       ON CONFLICT (date) DO UPDATE SET cached_at = NOW()
     `;
   }

@@ -96,7 +96,7 @@ export async function cacheEntries(entries: ClickUpEntry[], start: string, end: 
       return {
         id: entry.id,
         entry_date: entryDate,
-        raw_json: sql.json(entry),
+        raw_json: sql.json(entry as unknown as Record<string, unknown>),
       };
     });
 

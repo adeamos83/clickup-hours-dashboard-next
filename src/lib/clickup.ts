@@ -1,0 +1,179 @@
+/**
+ * ClickUp API client — fetches time entries and task details.
+ * Uses native fetch instead of axios.
+ */
+
+import { EMPLOYEE_IDS, USER_ID_TO_NAME } from './config';
+import { getCachedTaskIds, upsertTaskDetails, getTaskDetail } from './db';
+import type { ClickUpEntry } from './types';
+
+const API_BASE = 'https://api.clickup.com/api/v2';
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function fetchWithRetry<T>(
+  url: string,
+  options: RequestInit,
+  retries = 3,
+): Promise<T> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const response = await fetch(url, options);
+
+    if (response.status === 429 && attempt < retries) {
+      const backoff = Math.pow(2, attempt) * 1000;
+      console.log(`  Rate limited. Retrying in ${backoff / 1000}s (attempt ${attempt}/${retries})...`);
+      await sleep(backoff);
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(`ClickUp API error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json() as Promise<T>;
+  }
+
+  throw new Error('Max retries exceeded');
+}
+
+export async function fetchTimeEntries(
+  token: string,
+  teamId: string,
+  startMs: number | string,
+  endMs: number | string,
+): Promise<ClickUpEntry[]> {
+  const allUserIds = Object.values(EMPLOYEE_IDS).filter(Boolean).join(',');
+
+  console.log(`Fetching time entries...`);
+
+  const params = new URLSearchParams({
+    start_date: String(startMs),
+    end_date: String(endMs),
+    assignee: allUserIds,
+  });
+
+  const data = await fetchWithRetry<{ data: ClickUpEntry[] }>(
+    `${API_BASE}/team/${teamId}/time_entries?${params.toString()}`,
+    {
+      method: 'GET',
+      headers: { Authorization: token },
+    },
+  );
+
+  const entries = data?.data || [];
+  console.log(`  Got ${entries.length} entries`);
+
+  return entries;
+}
+
+interface TaskDetailResult {
+  folder: { id?: string; name?: string } | null;
+  list: { id?: string; name?: string } | null;
+  space: { id?: string; name?: string } | null;
+  status: string | null;
+}
+
+/**
+ * Fetch full task details for an array of task IDs.
+ * Runs in parallel batches to speed things up.
+ * Returns a map of taskId -> { folder, list, space, status }.
+ */
+export async function fetchTaskDetails(
+  token: string,
+  taskIds: string[],
+  batchSize = 10,
+): Promise<Record<string, TaskDetailResult>> {
+  const taskDetailsMap: Record<string, TaskDetailResult> = {};
+  const total = taskIds.length;
+
+  for (let i = 0; i < total; i += batchSize) {
+    const batch = taskIds.slice(i, i + batchSize);
+    const progress = Math.min(i + batchSize, total);
+    console.log(`  Fetching task details ${progress}/${total}...`);
+
+    const params = new URLSearchParams({
+      custom_task_ids: 'false',
+      include_subtasks: 'false',
+    });
+
+    const results = await Promise.allSettled(
+      batch.map((taskId) =>
+        fetchWithRetry<{
+          folder?: { id?: string; name?: string };
+          list?: { id?: string; name?: string };
+          space?: { id?: string; name?: string };
+          status?: { status?: string };
+        }>(
+          `${API_BASE}/task/${taskId}?${params.toString()}`,
+          {
+            method: 'GET',
+            headers: { Authorization: token },
+          },
+        )
+      )
+    );
+
+    for (let j = 0; j < batch.length; j++) {
+      const taskId = batch[j];
+      const result = results[j];
+
+      if (result.status === 'fulfilled') {
+        const task = result.value;
+        taskDetailsMap[taskId] = {
+          folder: task.folder || null,
+          list: task.list || null,
+          space: task.space || null,
+          status: task.status?.status || null,
+        };
+      } else {
+        taskDetailsMap[taskId] = { folder: null, list: null, space: null, status: null };
+      }
+    }
+  }
+
+  return taskDetailsMap;
+}
+
+/**
+ * Enrich time entries with full task details (folder, list, space).
+ * Checks the DB cache first — only fetches tasks we haven't seen before.
+ */
+export async function enrichEntries(
+  token: string,
+  entries: ClickUpEntry[],
+): Promise<ClickUpEntry[]> {
+  const uniqueTaskIds = [...new Set(
+    entries.filter((e) => e.task?.id).map((e) => e.task.id!)
+  )];
+
+  const cachedIds = await getCachedTaskIds();
+  const uncachedIds = uniqueTaskIds.filter((id) => !cachedIds.has(id));
+
+  console.log(`  ${uniqueTaskIds.length} unique tasks — ${cachedIds.size} cached, ${uncachedIds.length} to fetch`);
+
+  if (uncachedIds.length > 0) {
+    const newDetails = await fetchTaskDetails(token, uncachedIds);
+    await upsertTaskDetails(newDetails);
+    console.log(`  Cached ${uncachedIds.length} new task details`);
+  }
+
+  // Apply cached details to in-memory entries
+  for (const entry of entries) {
+    const taskId = entry.task?.id;
+    if (taskId) {
+      const cached = await getTaskDetail(taskId);
+      if (cached) {
+        if (!entry.task) entry.task = { id: taskId };
+        entry.task.folder = cached.folder_name ? { id: cached.folder_id ?? undefined, name: cached.folder_name } : undefined;
+        entry.task.list = cached.list_name ? { id: cached.list_id ?? undefined, name: cached.list_name } : undefined;
+        entry.task.space = cached.space_name ? { id: cached.space_id ?? undefined, name: cached.space_name } : undefined;
+      }
+    }
+  }
+
+  return entries;
+}
+
+export { EMPLOYEE_IDS, USER_ID_TO_NAME };

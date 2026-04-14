@@ -134,7 +134,7 @@ export async function cacheEntries(entries: ClickUpEntry[], start: string, end: 
       for (const row of batch) {
         await sql`
           INSERT INTO time_entries (id, entry_date, raw_json)
-          VALUES (${row.id}, ${row.entry_date}::date, ${JSON.stringify(row.raw_json)}::jsonb)
+          VALUES (${row.id}, ${row.entry_date}::date, ${sql.json(row.raw_json as unknown as Record<string, never>)})
           ON CONFLICT (id) DO UPDATE SET
             entry_date = EXCLUDED.entry_date,
             raw_json = EXCLUDED.raw_json

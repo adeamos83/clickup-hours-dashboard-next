@@ -76,6 +76,35 @@ export async function getCachedEntries(start: string, end: string): Promise<Clic
 }
 
 /**
+ * Return which dates in a range are NOT yet cached.
+ */
+export async function getUncachedDates(start: string, end: string): Promise<string[]> {
+  const allDates = dateRange(start, end);
+  if (allDates.length === 0) return [];
+
+  const cached = await sql`
+    SELECT date::text FROM cache_metadata WHERE date = ANY(${allDates}::date[])
+  `;
+  const cachedSet = new Set(cached.map((r) => r.date));
+
+  return allDates.filter((d) => !cachedSet.has(d));
+}
+
+/**
+ * Get cached entries for specific dates only (partial range).
+ */
+export async function getCachedEntriesForDates(dates: string[]): Promise<ClickUpEntry[]> {
+  if (dates.length === 0) return [];
+
+  const rows = await sql`
+    SELECT raw_json FROM time_entries
+    WHERE entry_date = ANY(${dates}::date[])
+  `;
+
+  return rows.map((r) => r.raw_json as ClickUpEntry);
+}
+
+/**
  * Cache enriched entries for a date range.
  * Replaces any existing entries for the range, then marks all dates as cached.
  */

@@ -36,6 +36,20 @@ export async function ensureSchema(): Promise<void> {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS task_details (
+      task_id TEXT PRIMARY KEY,
+      folder_id TEXT,
+      folder_name TEXT,
+      list_id TEXT,
+      list_name TEXT,
+      space_id TEXT,
+      space_name TEXT,
+      status TEXT,
+      cached_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
   schemaReady = true;
 }
 
@@ -106,7 +120,7 @@ export async function getCachedEntriesForDates(dates: string[]): Promise<ClickUp
 
 /**
  * Cache enriched entries for a date range.
- * Replaces any existing entries for the range, then marks all dates as cached.
+ * Uses jsonb_array_elements for bulk insert in a single round-trip per batch.
  */
 export async function cacheEntries(entries: ClickUpEntry[], start: string, end: string): Promise<void> {
   const allDates = dateRange(start, end);
@@ -117,40 +131,38 @@ export async function cacheEntries(entries: ClickUpEntry[], start: string, end: 
     WHERE entry_date >= ${start}::date AND entry_date <= ${end}::date
   `;
 
-  // Batch insert entries
+  // Build wrapped entries with entry_date computed, then bulk insert via jsonb_array_elements
   if (entries.length > 0) {
-    const rows = entries.map((entry) => {
+    const wrapped = entries.map((entry) => {
       const startMs = parseInt(entry.start, 10);
       const entryDate = new Date(startMs).toISOString().split('T')[0];
-      return {
-        id: entry.id,
-        entry_date: entryDate,
-        raw_json: entry,
-      };
+      return { _id: entry.id, _date: entryDate, _data: entry };
     });
 
-    for (let i = 0; i < rows.length; i += 500) {
-      const batch = rows.slice(i, i + 500);
-      for (const row of batch) {
-        await sql`
-          INSERT INTO time_entries (id, entry_date, raw_json)
-          VALUES (${row.id}, ${row.entry_date}::date, ${sql.json(row.raw_json as unknown as Record<string, never>)})
-          ON CONFLICT (id) DO UPDATE SET
-            entry_date = EXCLUDED.entry_date,
-            raw_json = EXCLUDED.raw_json
-        `;
-      }
+    // Batch in groups of 300 to keep parameter size reasonable
+    for (let i = 0; i < wrapped.length; i += 300) {
+      const batch = wrapped.slice(i, i + 300);
+
+      await sql`
+        INSERT INTO time_entries (id, entry_date, raw_json)
+        SELECT
+          e->>'_id',
+          (e->>'_date')::date,
+          e->'_data'
+        FROM jsonb_array_elements(${sql.json(batch as unknown as Record<string, never>[])}) AS e
+        ON CONFLICT (id) DO UPDATE SET
+          entry_date = EXCLUDED.entry_date,
+          raw_json = EXCLUDED.raw_json
+      `;
     }
   }
 
-  // Mark all dates in range as cached
-  for (const d of allDates) {
-    await sql`
-      INSERT INTO cache_metadata (date, cached_at)
-      VALUES (${d}::date, NOW())
-      ON CONFLICT (date) DO UPDATE SET cached_at = NOW()
-    `;
-  }
+  // Bulk mark all dates as cached
+  await sql`
+    INSERT INTO cache_metadata (date, cached_at)
+    SELECT d, NOW() FROM UNNEST(${allDates}::date[]) AS d
+    ON CONFLICT (date) DO UPDATE SET cached_at = NOW()
+  `;
 }
 
 /**
@@ -159,6 +171,91 @@ export async function cacheEntries(entries: ClickUpEntry[], start: string, end: 
 export async function invalidateCache(start: string, end: string): Promise<void> {
   await sql`DELETE FROM cache_metadata WHERE date >= ${start}::date AND date <= ${end}::date`;
   await sql`DELETE FROM time_entries WHERE entry_date >= ${start}::date AND entry_date <= ${end}::date`;
+}
+
+// ── Task detail persistent cache ──
+
+export interface TaskDetailRow {
+  folder: { id?: string; name?: string } | null;
+  list: { id?: string; name?: string } | null;
+  space: { id?: string; name?: string } | null;
+  status: string | null;
+}
+
+/**
+ * Get cached task details from DB for the given task IDs.
+ * Returns a map of taskId -> detail for those found.
+ */
+export async function getCachedTaskDetails(taskIds: string[]): Promise<Record<string, TaskDetailRow>> {
+  if (taskIds.length === 0) return {};
+
+  const rows = await sql`
+    SELECT task_id, folder_id, folder_name, list_id, list_name, space_id, space_name, status
+    FROM task_details
+    WHERE task_id = ANY(${taskIds})
+  `;
+
+  const result: Record<string, TaskDetailRow> = {};
+  for (const r of rows) {
+    result[r.task_id] = {
+      folder: r.folder_name ? { id: r.folder_id, name: r.folder_name } : null,
+      list: r.list_name ? { id: r.list_id, name: r.list_name } : null,
+      space: r.space_id ? { id: r.space_id, name: r.space_name } : null,
+      status: r.status,
+    };
+  }
+  return result;
+}
+
+/**
+ * Store task details in the DB for future lookups (bulk UNNEST insert).
+ */
+export async function cacheTaskDetails(details: Record<string, TaskDetailRow>): Promise<void> {
+  const entries = Object.entries(details);
+  if (entries.length === 0) return;
+
+  const taskIds: string[] = [];
+  const folderIds: (string | null)[] = [];
+  const folderNames: (string | null)[] = [];
+  const listIds: (string | null)[] = [];
+  const listNames: (string | null)[] = [];
+  const spaceIds: (string | null)[] = [];
+  const spaceNames: (string | null)[] = [];
+  const statuses: (string | null)[] = [];
+
+  for (const [taskId, d] of entries) {
+    taskIds.push(taskId);
+    folderIds.push(d.folder?.id ?? null);
+    folderNames.push(d.folder?.name ?? null);
+    listIds.push(d.list?.id ?? null);
+    listNames.push(d.list?.name ?? null);
+    spaceIds.push(d.space?.id ?? null);
+    spaceNames.push(d.space?.name ?? null);
+    statuses.push(d.status ?? null);
+  }
+
+  await sql`
+    INSERT INTO task_details (task_id, folder_id, folder_name, list_id, list_name, space_id, space_name, status, cached_at)
+    SELECT *, NOW() FROM UNNEST(
+      ${taskIds}::text[],
+      ${folderIds}::text[],
+      ${folderNames}::text[],
+      ${listIds}::text[],
+      ${listNames}::text[],
+      ${spaceIds}::text[],
+      ${spaceNames}::text[],
+      ${statuses}::text[]
+    )
+    ON CONFLICT (task_id) DO UPDATE SET
+      folder_id = EXCLUDED.folder_id,
+      folder_name = EXCLUDED.folder_name,
+      list_id = EXCLUDED.list_id,
+      list_name = EXCLUDED.list_name,
+      space_id = EXCLUDED.space_id,
+      space_name = EXCLUDED.space_name,
+      status = EXCLUDED.status,
+      cached_at = NOW()
+  `;
 }
 
 export { sql };

@@ -1,7 +1,7 @@
 import { fetchTimeEntries, enrichEntries } from '@/lib/clickup';
 import { ensureSchema, getCachedEntries, cacheEntries, invalidateCache, getUncachedDates, getCachedEntriesForDates } from '@/lib/db';
 import { getDefaultRetainer } from '@/lib/config';
-import type { RetainerLookup } from '@/lib/types';
+import type { ClickUpEntry, RetainerLookup } from '@/lib/types';
 
 export async function getEntriesForRange(start: string, end: string, refresh = false) {
   const token = process.env.CLICKUP_API_TOKEN;
@@ -102,6 +102,20 @@ function getContiguousRanges(dates: string[]): { start: string; end: string }[] 
   ranges.push({ start: rangeStart, end: prev });
 
   return ranges;
+}
+
+/**
+ * Get entries for a range using ONLY the cache — no API fetching.
+ * Returns null if the range isn't fully cached.
+ * Used for previous period comparisons to avoid blocking on slow API calls.
+ */
+export async function getCachedEntriesForRange(start: string, end: string): Promise<{ entries: ClickUpEntry[] } | null> {
+  await ensureSchema();
+  const cached = await getCachedEntries(start, end);
+  if (cached) {
+    return { entries: cached };
+  }
+  return null;
 }
 
 export function buildRetainerLookup(): RetainerLookup {

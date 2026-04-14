@@ -3,6 +3,7 @@
  */
 
 import { EMPLOYEE_IDS, USER_ID_TO_NAME } from './config';
+import { getCachedTaskDetails, cacheTaskDetails } from './db';
 import type { ClickUpEntry } from './types';
 
 const API_BASE = 'https://api.clickup.com/api/v2';
@@ -141,7 +142,7 @@ export async function fetchTaskDetails(
 
 /**
  * Enrich time entries with full task details (folder, list, space).
- * Uses an in-memory cache to avoid re-fetching the same tasks.
+ * Uses a 3-tier cache: in-memory → DB → ClickUp API.
  */
 export async function enrichEntries(
   token: string,
@@ -151,16 +152,32 @@ export async function enrichEntries(
     entries.filter((e) => e.task?.id).map((e) => e.task.id!)
   )];
 
-  const uncachedIds = uniqueTaskIds.filter((id) => !taskDetailCache.has(id));
+  // Tier 1: in-memory cache
+  const needDbLookup = uniqueTaskIds.filter((id) => !taskDetailCache.has(id));
+  const inMemoryHits = uniqueTaskIds.length - needDbLookup.length;
 
-  console.log(`  ${uniqueTaskIds.length} unique tasks — ${uniqueTaskIds.length - uncachedIds.length} cached, ${uncachedIds.length} to fetch`);
+  // Tier 2: DB cache
+  let dbHits = 0;
+  if (needDbLookup.length > 0) {
+    const dbCached = await getCachedTaskDetails(needDbLookup);
+    for (const [taskId, detail] of Object.entries(dbCached)) {
+      taskDetailCache.set(taskId, detail);
+    }
+    dbHits = Object.keys(dbCached).length;
+  }
 
-  if (uncachedIds.length > 0) {
-    const newDetails = await fetchTaskDetails(token, uncachedIds);
+  // Tier 3: ClickUp API for anything still missing
+  const needApiFetch = uniqueTaskIds.filter((id) => !taskDetailCache.has(id));
+  console.log(`  ${uniqueTaskIds.length} unique tasks — ${inMemoryHits} in-memory, ${dbHits} from DB, ${needApiFetch.length} to fetch from API`);
+
+  if (needApiFetch.length > 0) {
+    const newDetails = await fetchTaskDetails(token, needApiFetch, 25);
+    // Save to both in-memory and DB
     for (const [taskId, detail] of Object.entries(newDetails)) {
       taskDetailCache.set(taskId, detail);
     }
-    console.log(`  Cached ${uncachedIds.length} new task details in memory`);
+    await cacheTaskDetails(newDetails);
+    console.log(`  Fetched and cached ${needApiFetch.length} task details`);
   }
 
   for (const entry of entries) {

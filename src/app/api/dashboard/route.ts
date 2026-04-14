@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processEntries } from '@/lib/process';
-import { getEntriesForRange } from '../_helpers';
+import { getEntriesForRange, getCachedEntriesForRange } from '../_helpers';
 
 function getPreviousPeriod(start: string, end: string): { start: string; end: string } {
   const s = new Date(start + 'T00:00:00Z');
@@ -23,11 +23,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Fetch current and previous period in parallel
+    // Fetch current period; use cache-only for previous period (don't block on API)
     const prev = getPreviousPeriod(start, end);
     const [current, previous] = await Promise.all([
       getEntriesForRange(start, end),
-      getEntriesForRange(prev.start, prev.end).catch(() => null),
+      getCachedEntriesForRange(prev.start, prev.end).catch(() => null),
     ]);
 
     const data = processEntries(current.entries, start, end);

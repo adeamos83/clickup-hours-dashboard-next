@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEntriesForRange } from '../_helpers';
+import { TRACKER_CLIENTS } from '@/lib/client-tracker/clients';
+import { syncFolderTasks } from '@/lib/client-tracker/sync';
 
 /**
  * Cron-triggered sync route.
@@ -42,10 +44,25 @@ export async function GET(req: NextRequest) {
 
     console.log(`[sync] Sync complete: ${result.entries.length} total entries for the month`);
 
+    // Sync client tracker tasks for each configured client
+    const trackerResults: { slug: string; lists: number; tasks: number; error?: string }[] = [];
+    for (const client of TRACKER_CLIENTS) {
+      try {
+        console.log(`[sync] Syncing client tracker: ${client.slug}...`);
+        const r = await syncFolderTasks(client.folderId);
+        trackerResults.push({ slug: client.slug, ...r });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        console.error(`[sync] Client tracker ${client.slug} failed: ${message}`);
+        trackerResults.push({ slug: client.slug, lists: 0, tasks: 0, error: message });
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       month: `${year}-${String(month + 1).padStart(2, '0')}`,
       totalEntries: result.entries.length,
+      clientTrackers: trackerResults,
       syncedAt: new Date().toISOString(),
     });
   } catch (err: unknown) {
